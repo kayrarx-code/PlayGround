@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#071016">
+  <title>Büyük Harp — Tarihî Strateji</title>
+  <meta name="description" content="Avrupa haritasında geçen, sıra tabanlı tarihî strateji oyunu. I. ve II. Dünya Savaşı seferlerinde bir ulusun kaderini yönet.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23081016'/%3E%3Ccircle cx='16' cy='16' r='10' fill='none' stroke='%23d3af69' stroke-width='1.6'/%3E%3Cpath d='M16 9v14M9 16h14' stroke='%23c2564b' stroke-width='4'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="app">
+    <canvas id="map" aria-label="Avrupa strateji haritası"></canvas>
+    <div class="map-vignette" aria-hidden="true"></div>
+    <div class="map-grain" aria-hidden="true"></div>
+
+    <!-- ================= OYUN ================= -->
+    <main id="game" class="screen hidden" aria-live="polite">
+      <header class="hud">
+        <div class="hud-left">
+          <button class="icon-btn menu-btn" id="btn-menu" aria-label="Menü">☰</button>
+          <div class="emblem-wrap" id="hud-emblem"></div>
+          <div class="hud-id">
+            <div class="hud-side" id="hud-side">MİHVER DEVLETLERİ</div>
+            <div class="hud-scenario" id="hud-scenario">Avrupa 1939</div>
+          </div>
+        </div>
+        <div class="hud-center">
+          <div class="hud-date" id="hud-date">EYLÜL 1939</div>
+          <div class="hud-turn" id="hud-turn">TUR 1 / 36</div>
+          <div class="turn-track"><span id="turn-fill"></span></div>
+        </div>
+        <div class="hud-right">
+          <div class="resource" title="Savaş kasası">
+            <span class="res-glyph coin" aria-hidden="true"></span>
+            <div><b id="hud-gold">20</b><small>Kasa</small></div>
+          </div>
+          <div class="resource" title="Tur başına gelir">
+            <span class="res-glyph income" aria-hidden="true"></span>
+            <div><b id="hud-income">+14</b><small>Gelir</small></div>
+          </div>
+          <div class="resource morale-res" title="Ulusal moral">
+            <div><b id="hud-morale">65</b><small>Moral</small></div>
+            <div class="morale-track"><span id="morale-fill"></span></div>
+          </div>
+          <button class="icon-btn" id="btn-journal" aria-label="Sefer günlüğü">▤</button>
+          <button class="icon-btn" id="btn-sound" aria-label="Sesi aç/kapat">◖</button>
+          <button class="icon-btn" id="btn-help" aria-label="Yardım">?</button>
+        </div>
+      </header>
+
+      <aside class="side-panel left-panel" id="left-panel" aria-label="Sefer günlüğü">
+        <div class="panel-head">
+          <div>
+            <span class="eyebrow">KARARGAH</span>
+            <h2>SEFER GÜNLÜĞÜ</h2>
+          </div>
+          <button class="icon-btn panel-close" id="btn-close-left" aria-label="Kapat">×</button>
+        </div>
+        <div class="tabs">
+          <button class="tab active" data-tab="log">GÜNLÜK</button>
+          <button class="tab" data-tab="objectives">HEDEFLER</button>
+        </div>
+        <div class="log-list" id="log-list"></div>
+        <div class="objectives-list hidden" id="objectives-list"></div>
+        <div class="panel-foot">
+          <span class="dot axis"></span> Mihver
+          <span class="dot allies"></span> Müttefik
+          <span class="dot neutral"></span> Tarafsız
+        </div>
+      </aside>
+
+      <aside class="side-panel right-panel" id="right-panel" aria-label="Bölge bilgisi">
+        <div class="panel-head">
+          <div>
+            <span class="eyebrow" id="right-eyebrow">İSTİHBARAT</span>
+            <h2 id="right-title">CEPHE DURUMU</h2>
+          </div>
+          <button class="icon-btn panel-close" id="btn-close-right" aria-label="Kapat">×</button>
+        </div>
+        <div id="region-panel" class="region-panel"></div>
+      </aside>
+
+      <div class="bottom-bar">
+        <div class="bottom-hint" id="hint">
+          <span class="hint-icon">◆</span>
+          <span id="hint-text">Bir bölge seç, ardından komşu bölgeye saldır veya birlik taşı.</span>
+        </div>
+        <div class="bottom-actions">
+          <div class="zoom-group">
+            <button class="icon-btn" id="btn-zoom-out" aria-label="Uzaklaş">−</button>
+            <button class="icon-btn" id="btn-zoom-in" aria-label="Yakınlaş">+</button>
+            <button class="icon-btn" id="btn-center" aria-label="Haritayı ortala">⌖</button>
+          </div>
+          <button class="btn btn-gold end-turn" id="btn-end-turn">
+            <span>TURU BİTİR</span>
+            <small id="actions-left">12 HAREKÂT</small>
+          </button>
+        </div>
+      </div>
+
+      <div id="ai-banner" class="ai-banner hidden"><span class="spinner"></span> DÜŞMAN HAREKÂTI SÜRÜYOR</div>
+      <div id="battle-banner" class="battle-banner hidden"></div>
+      <div id="tooltip" class="map-tooltip hidden"></div>
+      <div id="toasts" class="toast-stack" aria-live="polite"></div>
+    </main>
+
+    <!-- ================= GİRİŞ ================= -->
+    <section id="intro" class="screen intro">
+      <div class="intro-shade"></div>
+      <div class="intro-grid">
+        <div class="intro-left">
+          <div class="kicker"><span></span> TARİHÎ STRATEJİ OYUNU <span></span></div>
+          <h1>BÜYÜK<br><em>HARP</em></h1>
+          <p class="tagline">Tarih, haritanın üzerinde yazılır.</p>
+          <p class="intro-desc">
+            Dünya savaşlarının dönüm noktalarında bir ulusun kaderini eline al.
+            Orduları sevk et, cepheleri yar, tarihî olayların akışını değiştir.
+          </p>
+          <div class="intro-actions">
+            <button class="btn btn-gold hidden" id="btn-continue">DEVAM ET</button>
+            <button class="btn btn-ghost" id="btn-how">NASIL OYNANIR?</button>
+          </div>
+          <div class="intro-stats">
+            <div><b>33</b><span>BÖLGE</span></div>
+            <div><b>2</b><span>SEFER</span></div>
+            <div><b>20+</b><span>TARİHÎ OLAY</span></div>
+            <div><b>∞</b><span>ALTERNATİF TARİH</span></div>
+          </div>
+        </div>
+
+        <div class="intro-right">
+          <div class="selection-panel">
+            <div class="selection-head">
+              <span class="eyebrow">HARP PLANI</span>
+              <h2>SEFER SEÇ</h2>
+            </div>
+            <div id="scenario-list" class="scenario-list"></div>
+
+            <div class="selection-head side-head">
+              <span class="eyebrow">KOMUTA</span>
+              <h2>TARAFINI SEÇ</h2>
+            </div>
+            <div id="side-list" class="side-list"></div>
+
+            <div class="difficulty-row">
+              <span>ZORLUK</span>
+              <div class="segmented" id="difficulty-seg">
+                <button data-diff="easy">KOLAY</button>
+                <button data-diff="normal" class="active">TARİHÎ</button>
+                <button data-diff="hard">ZOR</button>
+              </div>
+            </div>
+
+            <button class="btn btn-gold btn-wide" id="btn-start">SEFERE BAŞLA <span>➤</span></button>
+            <p class="save-note" id="save-note">Her tur otomatik kaydedilir.</p>
+          </div>
+        </div>
+      </div>
+      <footer class="intro-footer">
+        <span>BÜYÜK HARP · 1914 — 1945</span>
+        <span class="footer-quote">“Tarih, kazananlar tarafından yazılır. Bu kez yazan sen ol.”</span>
+      </footer>
+    </section>
+
+    <!-- ================= SON EKRAN ================= -->
+    <section id="end-screen" class="screen end-screen hidden">
+      <div class="end-card">
+        <div class="end-emblem" id="end-emblem"></div>
+        <span class="eyebrow" id="end-kicker">SEFER SONA ERDİ</span>
+        <h1 id="end-title">ZAFER</h1>
+        <p id="end-subtitle">Tarih yeniden yazıldı.</p>
+        <div class="end-stats" id="end-stats"></div>
+        <blockquote id="end-quote"></blockquote>
+        <div class="end-actions">
+          <button class="btn btn-gold" id="btn-replay">YENİ SEFER</button>
+          <button class="btn btn-ghost" id="btn-end-menu">ANA MENÜ</button>
+        </div>
+      </div>
+    </section>
+
+    <div id="modal-layer" class="modal-layer hidden" role="dialog" aria-modal="true"></div>
+  </div>
+
+  <script src="map-data.js"></script>
+  <script src="data.js"></script>
+  <script src="engine.js"></script>
+  <script src="ui.js"></script>
+</body>
+</html>
